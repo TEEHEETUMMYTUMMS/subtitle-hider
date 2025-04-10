@@ -35,11 +35,6 @@ int main() {
                                      BlackPixel(display, screen),
                                      WhitePixel(display, screen));
 
-    //Set opacity
-    //unsigned long opacity = (unsigned long)(0.1 * 0xFFFFFFFF); // 80% opaque
-    //Atom opacity_atom = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
-    //XChangeProperty(display, win, opacity_atom, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&opacity, 1);
-
     //Change color
     XSetWindowBackground(display, win, 0x808080);
 
