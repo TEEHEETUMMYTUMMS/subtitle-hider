@@ -1,0 +1,5 @@
+This is a subtitle hider.
+
+blur/transparency affects requires picom or other compositor
+move the window around by click and drag (maybe i should add vim bindings for this).
+resize by draging the corners
