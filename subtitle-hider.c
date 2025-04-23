@@ -37,7 +37,6 @@ int main() {
 
 	XSetWindowBackground(display, win, 0x808080);
 
-	// Frameless
 	Atom wmHints = XInternAtom(display, "_MOTIF_WM_HINTS", False);
 	struct {
 		unsigned long flags, functions, decorations;
@@ -81,7 +80,7 @@ int main() {
 	while (1) {
 		XNextEvent(display, &event);
 
-		else if (event.type == ButtonPress && event.xbutton.button == Button1) {
+		if (event.type == ButtonPress && event.xbutton.button == Button1) {
 			int x = event.xbutton.x;
 			int y = event.xbutton.y;
 			Window child;
