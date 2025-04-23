@@ -1,5 +1,7 @@
 # Subtitle Hider
 
+![Demo](./media/subhide.gif)
+
 A frameless, draggable, and resizable transparent window for X11 designed to
 hide subtitles with a blur effect so that words are unreadable but content can
 still be seen
