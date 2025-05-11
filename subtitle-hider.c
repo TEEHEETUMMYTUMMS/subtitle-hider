@@ -33,8 +33,8 @@ int main() {
 	int win_x = 500, win_y = 900, win_w = 1600, win_h = 100;
 
 	Window win = XCreateSimpleWindow(display, root, win_x, win_y, win_w, win_h, 0,
-									 BlackPixel(display, screen),
-									 WhitePixel(display, screen));
+								  BlackPixel(display, screen),
+								  WhitePixel(display, screen));
 
 	XSetWindowBackground(display, win, 0x808080);
 
@@ -45,12 +45,12 @@ int main() {
 		unsigned long status;
 	} hints = {2, 0, 0, 0, 0};
 	XChangeProperty(display, win, wmHints, wmHints, 32, PropModeReplace,
-					(unsigned char *)&hints, 5);
+				 (unsigned char *)&hints, 5);
 
 	Atom state = XInternAtom(display, "_NET_WM_STATE", False);
 	Atom above = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
 	XChangeProperty(display, win, state, XA_ATOM, 32, PropModeReplace,
-					(unsigned char *)&above, 1);
+				 (unsigned char *)&above, 1);
 
 	GC gc = XCreateGC(display, win, 0, NULL);
 	Colormap cmap = DefaultColormap(display, screen);
@@ -71,8 +71,8 @@ int main() {
 	XSetWMProtocols(display, win, &wm_delete, 1);
 
 	XSelectInput(display, win, ExposureMask | ButtonPressMask |
-							  ButtonReleaseMask | Button1MotionMask |
-							  StructureNotifyMask);
+			  ButtonReleaseMask | Button1MotionMask |
+			  StructureNotifyMask);
 
 	XMapWindow(display, win);
 
@@ -142,7 +142,7 @@ int main() {
 				XWindowAttributes attrs;
 				XGetWindowAttributes(display, win, &attrs);
 				int region = get_resize_region(event.xmotion.x, event.xmotion.y,
-											   attrs.width, attrs.height);
+								   attrs.width, attrs.height);
 
 				if (region != hover_region) {
 					hover_region = region;
@@ -162,9 +162,9 @@ int main() {
 			drag_start_y = event.xbutton.y_root;
 
 			XTranslateCoordinates(display, win, root, 0, 0,
-								  &win_start_x,
-								  &win_start_y,
-								  &(Window){0});
+						 &win_start_x,
+						 &win_start_y,
+						 &(Window){0});
 			win_start_w = attrs.width;
 			win_start_h = attrs.height;
 
