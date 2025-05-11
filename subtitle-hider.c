@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define RESIZE_MARGIN 16
+#define RESIZE_MARGIN 20
+#define INDICATOR_SIZE 8
 
 enum {
 	NONE, DRAG, RESIZE_TL, RESIZE_TR, RESIZE_BL, RESIZE_BR
@@ -46,11 +47,17 @@ int main() {
 	XChangeProperty(display, win, wmHints, wmHints, 32, PropModeReplace,
 					(unsigned char *)&hints, 5);
 
-	// Always on top
 	Atom state = XInternAtom(display, "_NET_WM_STATE", False);
 	Atom above = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
 	XChangeProperty(display, win, state, XA_ATOM, 32, PropModeReplace,
 					(unsigned char *)&above, 1);
+
+	GC gc = XCreateGC(display, win, 0, NULL);
+	Colormap cmap = DefaultColormap(display, screen);
+	XColor redcol;
+	XParseColor(display, cmap, "red", &redcol);
+	XAllocColor(display, cmap, &redcol);
+	XSetForeground(display, gc, redcol.pixel);
 
 	XClassHint *classHint = XAllocClassHint();
 	classHint->res_name = "subtitlehider";
@@ -63,7 +70,6 @@ int main() {
 	Atom wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", False);
 	XSetWMProtocols(display, win, &wm_delete, 1);
 
-	// Select input
 	XSelectInput(display, win, ExposureMask | ButtonPressMask |
 							  ButtonReleaseMask | Button1MotionMask |
 							  StructureNotifyMask);
@@ -75,15 +81,79 @@ int main() {
 	int win_start_x = 0, win_start_y = 0;
 	int win_start_w = win_w, win_start_h = win_h;
 	int mode = NONE;
+	int hover_region = NONE;
 
 	XEvent event;
 	while (1) {
 		XNextEvent(display, &event);
 
-		if (event.type == ButtonPress && event.xbutton.button == Button1) {
+		if (event.type == Expose) {
+			XWindowAttributes attrs;
+			XGetWindowAttributes(display, win, &attrs);
+			if (hover_region >= RESIZE_TL & hover_region <= RESIZE_BR) {
+				int ix = 0, iy = 0;
+				switch (hover_region) {
+					case RESIZE_TL: ix = 0; iy = 0; break;
+					case RESIZE_TR: ix = attrs.width - INDICATOR_SIZE; iy = 0; break;
+					case RESIZE_BL: ix = 0; iy = attrs.height - INDICATOR_SIZE; break;
+					case RESIZE_BR: ix = attrs.width - INDICATOR_SIZE; iy = attrs.height - INDICATOR_SIZE; break;
+				}
+				XFillRectangle(display, win, gc, ix, iy, INDICATOR_SIZE, INDICATOR_SIZE);
+			}
+		}
+
+		else if (event.type == MotionNotify) {
+			if (dragging) {
+				int dx = event.xmotion.x_root - drag_start_x;
+				int dy = event.xmotion.y_root - drag_start_y;
+
+				if (mode == DRAG) {
+					XMoveWindow(display, win, win_start_x + dx, win_start_y + dy);
+				} else {
+					int new_w = win_start_w;
+					int new_h = win_start_h;
+					int new_x = win_start_x;
+					int new_y = win_start_y;
+
+					if (mode == RESIZE_TL) {
+						new_w -= dx;
+						new_h -= dy;
+						new_x += dx;
+						new_y += dy;
+					} else if (mode == RESIZE_TR) {
+						new_w += dx;
+						new_h -= dy;
+						new_y += dy;
+					} else if (mode == RESIZE_BL) {
+						new_w -= dx;
+						new_h += dy;
+						new_x += dx;
+					} else if (mode == RESIZE_BR) {
+						new_w += dx;
+						new_h += dy;
+					}
+
+					if (new_w < 50) new_w = 50;
+					if (new_h < 50) new_h = 50;
+
+					XMoveResizeWindow(display, win, new_x, new_y, new_w, new_h);
+				}
+			} else {
+				XWindowAttributes attrs;
+				XGetWindowAttributes(display, win, &attrs);
+				int region = get_resize_region(event.xmotion.x, event.xmotion.y,
+											   attrs.width, attrs.height);
+
+				if (region != hover_region) {
+					hover_region = region;
+					XClearWindow(display, win);
+				}
+			}
+		}
+
+		else if (event.type == ButtonPress && event.xbutton.button == Button1) {
 			int x = event.xbutton.x;
 			int y = event.xbutton.y;
-			Window child;
 			XWindowAttributes attrs;
 			XGetWindowAttributes(display, win, &attrs);
 			mode = get_resize_region(x, y, attrs.width, attrs.height);
@@ -94,51 +164,12 @@ int main() {
 			XTranslateCoordinates(display, win, root, 0, 0,
 								  &win_start_x,
 								  &win_start_y,
-								  &child);
+								  &(Window){0});
 			win_start_w = attrs.width;
 			win_start_h = attrs.height;
 
 			dragging = 1;
 		}
-
-		else if (event.type == MotionNotify && dragging) {
-			int dx = event.xmotion.x_root - drag_start_x;
-			int dy = event.xmotion.y_root - drag_start_y;
-
-			if (mode == DRAG) {
-				XMoveWindow(display, win, win_start_x + dx, win_start_y + dy);
-			} else {
-				int new_w = win_start_w;
-				int new_h = win_start_h;
-				int new_x = win_start_x;
-				int new_y = win_start_y;
-
-				if (mode == RESIZE_TL) {
-					new_w -= dx;
-					new_h -= dy;
-					new_x += dx;
-					new_y += dy;
-				} else if (mode == RESIZE_TR) {
-					new_w += dx;
-					new_h -= dy;
-					new_y += dy;
-				} else if (mode == RESIZE_BL) {
-					new_w -= dx;
-					new_h += dy;
-					new_x += dx;
-				} else if (mode == RESIZE_BR) {
-					new_w += dx;
-					new_h += dy;
-				}
-
-				// Minimum size
-				if (new_w < 100) new_w = 100;
-				if (new_h < 100) new_h = 100;
-
-				XMoveResizeWindow(display, win, new_x, new_y, new_w, new_h);
-			}
-		}
-
 		else if (event.type == ButtonRelease && event.xbutton.button == Button1) {
 			dragging = 0;
 			mode = NONE;
@@ -146,11 +177,12 @@ int main() {
 
 		else if (event.type == ClientMessage) {
 			if ((Atom)event.xclient.data.l[0] == wm_delete) {
-				break;	// Clean exit
+				break;
 			}
 		}
 	}
 
+	XFreeGC(display, gc);
 	XDestroyWindow(display, win);
 	XCloseDisplay(display);
 	return 0;

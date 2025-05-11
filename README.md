@@ -21,12 +21,43 @@ resize by draging the corners
 
 - **`picom`** - Lightweight X11 compositor that handles transparency and blur
 
+## Installation
+### Install Dependencies
+```
+sudo apt update
+sudo apt install build-essential libx11-dev libxext-dev libxrender-dev picom stow
+```
+### Clone Repo
+```
+git clone https://github.com/TEEHEETUMMYTUMMS/subtitle-hider.git
+```
+## Build & Run
+
+### Make bin dir:
+
+```
+cd subtitle-hider
+mkdir -p bin/.local/bin
+```
+### Compile with `gcc`:
+
+```
+gcc ./subtitle-hider -o ./bin/.local/bin/subtitle-hider -lX11
+```
+### Stow and then Run with:
+
+```
+stow bin -t $HOME
+```
+```
+subtitle-hider
+```
 ## Setting up `picom`
 
 Here is an example `picom.conf` that applies full transparency with a blur to
 the `SubtitleHider` windows:
 
-```
+```bash
 backend = "glx";
 
 blur-method = "dual_kawase";
@@ -46,21 +77,3 @@ Save this to:
 ~/.config/picom/picom.conf
 ```
 
-## Installation
-
-```
-sudo apt update
-sudo apt install libx11-dev libxext-dev libxrender-dev picom build-essential
-```
-## Build & Run
-
-### Compile with `gcc`:
-
-```
-gcc ./subtitle-hider -o subtitle-hider -lX11
-```
-### Run with:
-
-```
-./subtitle-hider
-```
