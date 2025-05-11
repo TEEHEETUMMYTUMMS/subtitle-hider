@@ -92,7 +92,8 @@ int main() {
 	XMapWindow(d, win);
 
 	int dragging = 0, mode = NONE;
-	int start_x, start_y, start_w, start_h, orig_x, orig_y;
+	int start_x, start_y, start_w, start_h;
+	int win_x, win_y;
 	XEvent e;
 
 	while (1) {
@@ -114,12 +115,14 @@ int main() {
 					int ny = e.xmotion.y_root - start_y;
 					XMoveWindow(d, win, nx, ny);
 				} else {
-					int dx = e.xmotion.x_root - (orig_x + start_x);
-					int dy = e.xmotion.y_root - (orig_y + start_y);
+					XWindowAttributes att;
+					XGetWindowAttributes(d, win, &att);
+					int dx = e.xmotion.x_root - (win_x + start_x);
+					int dy = e.xmotion.y_root - (win_y + start_y);
 					int nw = start_w;
 					int nh = start_h;
-					int nx = orig_x;
-					int ny = orig_y;
+					int nx = win_x;
+					int ny = win_y;
 					if (mode == RESIZE_TL) { nw -= dx; nh -= dy; nx += dx; ny += dy; }
 					if (mode == RESIZE_TR) { nw += dx; nh -= dy; ny += dy; }
 					if (mode == RESIZE_BL) { nw -= dx; nh += dy; nx += dx; }
@@ -140,14 +143,14 @@ int main() {
 				}
 			}
 		} else if (e.type == ButtonPress && e.xbutton.button == Button1) {
+			Window child;
+			XTranslateCoordinates(d, win, root, 0, 0, &win_x, &win_y, &child);
+			start_x = e.xbutton.x_root - win_x;
+			start_y = e.xbutton.y_root - win_y;
 			XWindowAttributes att;
 			XGetWindowAttributes(d, win, &att);
 			start_w = att.width;
 			start_h = att.height;
-			start_x = e.xbutton.x_root - att.x;
-			start_y = e.xbutton.y_root - att.y;
-			orig_x = att.x;
-			orig_y = att.y;
 			mode = get_resize_region(e.xbutton.x, e.xbutton.y, att.width, att.height);
 			dragging = 1;
 		} else if (e.type == ButtonRelease && e.xbutton.button == Button1) {
