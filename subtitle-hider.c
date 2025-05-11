@@ -6,7 +6,7 @@
 #include <string.h>
 
 #define RESIZE_MARGIN 20
-#define INDICATOR_SIZE 8
+#define INDICATOR_SIZE 20
 
 enum {
 	NONE, DRAG, RESIZE_TL, RESIZE_TR, RESIZE_BL, RESIZE_BR
@@ -18,6 +18,18 @@ int get_resize_region(int x, int y, int width, int height) {
 	if (x <= RESIZE_MARGIN && y >= height - RESIZE_MARGIN) return RESIZE_BL;
 	if (x >= width - RESIZE_MARGIN && y >= height - RESIZE_MARGIN) return RESIZE_BR;
 	return DRAG;
+}
+
+void draw_indicator(Display *display, Window win, GC gc, int region, int width, int height) {
+	int ix = 0, iy = 0;
+	switch (region) {
+		case RESIZE_TL: ix = 0; iy = 0; break;
+		case RESIZE_TR: ix = width - INDICATOR_SIZE; iy = 0; break;
+		case RESIZE_BL: ix = 0; iy = height - INDICATOR_SIZE; break;
+		case RESIZE_BR: ix = width - INDICATOR_SIZE; iy = height - INDICATOR_SIZE; break;
+		default: return;
+	}
+	XFillRectangle(display, win, gc, ix, iy, INDICATOR_SIZE, INDICATOR_SIZE);
 }
 
 int main() {
@@ -35,15 +47,10 @@ int main() {
 	Window win = XCreateSimpleWindow(display, root, win_x, win_y, win_w, win_h, 0,
 								  BlackPixel(display, screen),
 								  WhitePixel(display, screen));
-
 	XSetWindowBackground(display, win, 0x808080);
 
 	Atom wmHints = XInternAtom(display, "_MOTIF_WM_HINTS", False);
-	struct {
-		unsigned long flags, functions, decorations;
-		long input_mode;
-		unsigned long status;
-	} hints = {2, 0, 0, 0, 0};
+	struct { unsigned long flags, functions, decorations; long input_mode; unsigned long status; } hints = {2, 0, 0, 0, 0};
 	XChangeProperty(display, win, wmHints, wmHints, 32, PropModeReplace,
 				 (unsigned char *)&hints, 5);
 
@@ -65,15 +72,9 @@ int main() {
 	XSetClassHint(display, win, classHint);
 	XFree(classHint);
 
-	XStoreName(display, win, "Subtitle Hider");
-
-	Atom wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", False);
-	XSetWMProtocols(display, win, &wm_delete, 1);
-
 	XSelectInput(display, win, ExposureMask | ButtonPressMask |
 			  ButtonReleaseMask | Button1MotionMask |
 			  PointerMotionMask | StructureNotifyMask);
-
 	XMapWindow(display, win);
 
 	int dragging = 0;
@@ -88,17 +89,10 @@ int main() {
 		XNextEvent(display, &event);
 
 		if (event.type == Expose) {
-			XWindowAttributes attrs;
-			XGetWindowAttributes(display, win, &attrs);
-			if (hover_region >= RESIZE_TL && hover_region <= RESIZE_BR) {
-				int ix = 0, iy = 0;
-				switch (hover_region) {
-					case RESIZE_TL: ix = 0; iy = 0; break;
-					case RESIZE_TR: ix = attrs.width - INDICATOR_SIZE; iy = 0; break;
-					case RESIZE_BL: ix = 0; iy = attrs.height - INDICATOR_SIZE; break;
-					case RESIZE_BR: ix = attrs.width - INDICATOR_SIZE; iy = attrs.height - INDICATOR_SIZE; break;
-				}
-				XFillRectangle(display, win, gc, ix, iy, INDICATOR_SIZE, INDICATOR_SIZE);
+			if (!dragging && hover_region >= RESIZE_TL && hover_region <= RESIZE_BR) {
+				XWindowAttributes attrs;
+				XGetWindowAttributes(display, win, &attrs);
+				draw_indicator(display, win, gc, hover_region, attrs.width, attrs.height);
 			}
 		}
 
@@ -106,36 +100,15 @@ int main() {
 			if (dragging) {
 				int dx = event.xmotion.x_root - drag_start_x;
 				int dy = event.xmotion.y_root - drag_start_y;
-
-				if (mode == DRAG) {
-					XMoveWindow(display, win, win_start_x + dx, win_start_y + dy);
-				} else {
-					int new_w = win_start_w;
-					int new_h = win_start_h;
-					int new_x = win_start_x;
-					int new_y = win_start_y;
-
-					if (mode == RESIZE_TL) {
-						new_w -= dx;
-						new_h -= dy;
-						new_x += dx;
-						new_y += dy;
-					} else if (mode == RESIZE_TR) {
-						new_w += dx;
-						new_h -= dy;
-						new_y += dy;
-					} else if (mode == RESIZE_BL) {
-						new_w -= dx;
-						new_h += dy;
-						new_x += dx;
-					} else if (mode == RESIZE_BR) {
-						new_w += dx;
-						new_h += dy;
-					}
-
+				if (mode == DRAG) XMoveWindow(display, win, win_start_x + dx, win_start_y + dy);
+				else {
+					int new_w = win_start_w, new_h = win_start_h, new_x = win_start_x, new_y = win_start_y;
+					if (mode == RESIZE_TL) { new_w -= dx; new_h -= dy; new_x += dx; new_y += dy; }
+					if (mode == RESIZE_TR) { new_w += dx; new_h -= dy; new_y += dy; }
+					if (mode == RESIZE_BL) { new_w -= dx; new_h += dy; new_x += dx; }
+					if (mode == RESIZE_BR) { new_w += dx; new_h += dy; }
 					if (new_w < 50) new_w = 50;
 					if (new_h < 50) new_h = 50;
-
 					XMoveResizeWindow(display, win, new_x, new_y, new_w, new_h);
 				}
 			} else {
@@ -143,42 +116,36 @@ int main() {
 				XGetWindowAttributes(display, win, &attrs);
 				int region = get_resize_region(event.xmotion.x, event.xmotion.y,
 								   attrs.width, attrs.height);
-
 				if (region != hover_region) {
 					hover_region = region;
 					XClearWindow(display, win);
+					if (hover_region >= RESIZE_TL && hover_region <= RESIZE_BR) {
+						draw_indicator(display, win, gc, hover_region, attrs.width, attrs.height);
+					}
 				}
 			}
 		}
 
 		else if (event.type == ButtonPress && event.xbutton.button == Button1) {
-			int x = event.xbutton.x;
-			int y = event.xbutton.y;
 			XWindowAttributes attrs;
 			XGetWindowAttributes(display, win, &attrs);
-			mode = get_resize_region(x, y, attrs.width, attrs.height);
-
+			mode = get_resize_region(event.xbutton.x, event.xbutton.y, attrs.width, attrs.height);
 			drag_start_x = event.xbutton.x_root;
 			drag_start_y = event.xbutton.y_root;
-
-			XTranslateCoordinates(display, win, root, 0, 0,
-						 &win_start_x,
-						 &win_start_y,
-						 &(Window){0});
+			XTranslateCoordinates(display, win, root, 0, 0, &win_start_x, &win_start_y, &(Window){0});
 			win_start_w = attrs.width;
 			win_start_h = attrs.height;
-
 			dragging = 1;
 		}
+
 		else if (event.type == ButtonRelease && event.xbutton.button == Button1) {
 			dragging = 0;
 			mode = NONE;
 		}
 
 		else if (event.type == ClientMessage) {
-			if ((Atom)event.xclient.data.l[0] == wm_delete) {
-				break;
-			}
+			Atom wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", False);
+			if ((Atom)event.xclient.data.l[0] == wm_delete) break;
 		}
 	}
 
