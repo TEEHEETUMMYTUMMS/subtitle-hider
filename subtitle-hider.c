@@ -72,7 +72,7 @@ int main() {
 
 	XSelectInput(display, win, ExposureMask | ButtonPressMask |
 			  ButtonReleaseMask | Button1MotionMask |
-			  StructureNotifyMask);
+			  PointerMotionMask | StructureNotifyMask);
 
 	XMapWindow(display, win);
 
@@ -90,7 +90,7 @@ int main() {
 		if (event.type == Expose) {
 			XWindowAttributes attrs;
 			XGetWindowAttributes(display, win, &attrs);
-			if (hover_region >= RESIZE_TL & hover_region <= RESIZE_BR) {
+			if (hover_region >= RESIZE_TL && hover_region <= RESIZE_BR) {
 				int ix = 0, iy = 0;
 				switch (hover_region) {
 					case RESIZE_TL: ix = 0; iy = 0; break;
